@@ -1,0 +1,31 @@
+Saat ini kamu  punya 2 opsi untuk memulai aplikasinya:
+
+1️⃣ Opsi Manual:
+Ketik sendiri:
+
+ketik printah di terminal
+
+python3 -m http.server 8080
+
+
+💻 Ini cocok kalau kamu memang cuma perlu sekali-sekali aja.
+
+
+
+2️⃣ Opsi Alias (Cepat & Simpel):
+Ketik:
+
+00
+
+
+⚡️ Ini dijalankan setelah kamu buat alias dan script start.sh.
+✅ Sekali buat, selanjutnya cuma perlu mengetik 00.
+
+🔥 Kesimpulan
+👉 Kalau kamu mau yang panjang (manual):
+
+python3 -m http.server 8080
+
+👉 Kalau kamu mau yang pendek dan gampang diingat:
+
+00
