@@ -297,8 +297,8 @@
                 lastRecordedDate = '';
             }
             console.log(`[Firestore Load] Loaded daily revenue for ${userId}: ${dailyRevenue}, last date: ${lastRecordedDate}`);
-        } catch (e) {
-            console.error("Gagal memuat pendapatan harian dari Firestore:", e);
+        } catch (error) {
+            console.error("Gagal memuat pendapatan harian dari Firestore:", error);
             dailyRevenue = 0;
             lastRecordedDate = '';
         }
@@ -312,8 +312,8 @@
             const docRef = firebaseFunctions.doc(db, `artifacts/${appId}/users/${userId}/financialSummary/daily`);
             await firebaseFunctions.setDoc(docRef, { revenue: dailyRevenue, lastDate: lastRecordedDate }, { merge: true });
             console.log(`[Firestore Save] Saved daily revenue for ${userId}: ${dailyRevenue}, last date: ${lastRecordedDate}`);
-        } catch (e) {
-            console.error("Gagal menyimpan pendapatan harian ke Firestore:", e);
+        } catch (error) {
+            console.error("Gagal menyimpan pendapatan harian ke Firestore:", error);
         }
     }
 
@@ -340,8 +340,8 @@
                 lastRecordedMonth = '';
             }
             console.log(`[Firestore Load] Loaded monthly financial data for ${userId}: NetProfit=${monthlyNetProfit}, Expenses=${monthlyExpenses}, last month: ${lastRecordedMonth}`);
-        } catch (e) {
-            console.error("Gagal memuat data keuangan bulanan dari Firestore:", e);
+        } catch (error) {
+            console.error("Gagal memuat data keuangan bulanan dari Firestore:", error);
             monthlyNetProfit = 0;
             monthlyExpenses = 0;
             lastRecordedMonth = '';
@@ -356,8 +356,8 @@
             const docRef = firebaseFunctions.doc(db, `artifacts/${appId}/users/${userId}/financialSummary/monthly`);
             await firebaseFunctions.setDoc(docRef, { netProfit: monthlyNetProfit, expenses: monthlyExpenses, lastMonth: lastRecordedMonth }, { merge: true });
             console.log(`[Firestore Save] Saved monthly financial data for ${userId}: NetProfit=${monthlyNetProfit}, Expenses=${monthlyExpenses}, last month: ${lastRecordedMonth}`);
-        } catch (e) {
-            console.error("Gagal menyimpan data keuangan bulanan ke Firestore:", e);
+        } catch (error) {
+            console.error("Gagal menyimpan data keuangan bulanan ke Firestore:", error);
         }
     }
 
@@ -439,8 +439,8 @@
             try {
                 document.execCommand('copy');
                 displayStatus("Berhasil disalin!", "success", successMessageElement);
-            } catch (err) {
-                console.error('Gagal menyalin: ', err);
+            } catch (error) {
+                console.error('Gagal menyalin: ', error);
                 displayStatus("Gagal menyalin teks.", "error", successMessageElement);
             }
             document.body.removeChild(textArea);
@@ -448,30 +448,33 @@
         }
         navigator.clipboard.writeText(text).then(function() {
             displayStatus("Berhasil disalin!", "success", successMessageElement);
-        }).catch(function(err) {
-            console.error('Gagal menyalin: ', err);
+        }).catch(function(error) {
+            console.error('Gagal menyalin: ', error);
             displayStatus("Gagal menyalin teks.", "error", successMessageElement);
         });
     }
 
     function playCoinSound() {
         if (coinSoundAudio) {
-            coinSoundAudio.play().catch(e => console.error("Error playing sound:", e));
+            coinSoundAudio.play().catch(error => console.error("Error playing sound:", error));
         }
     }
 
     // Fungsi untuk membuat profil pengguna di Firestore setelah Auth berhasil
     async function createUserProfileInFirestore(uid, username, role) {
+        // Pastikan username dan role tidak undefined saat disimpan
+        const finalUsername = username || `user_${uid.substring(0, 8)}`; // Fallback jika username kosong
+        const finalRole = role || 'cashier'; // Fallback jika role kosong
         try {
             const userDocRef = firebaseFunctions.doc(db, `users/${uid}`);
             await firebaseFunctions.setDoc(userDocRef, {
-                username: username,
-                role: role,
+                username: finalUsername,
+                role: finalRole,
                 createdAt: firebaseFunctions.serverTimestamp()
             });
-            console.log(`[Firestore] User profile ${username} (${uid}) created with role: ${role}.`);
-        } catch (e) {
-            console.error("Error membuat profil user di Firestore:", e);
+            console.log(`[Firestore] User profile ${finalUsername} (${uid}) created with role: ${finalRole}.`);
+        } catch (error) {
+            console.error("Error membuat profil user di Firestore:", error);
         }
     }
 
@@ -544,13 +547,16 @@
             const userDocRef = firebaseFunctions.doc(db, `users/${uid}`); // User profile disimpan di collection 'users'
             const userDocSnap = await firebaseFunctions.getDoc(userDocRef);
             if (userDocSnap.exists()) {
-                console.log(`[Firestore Load] User profile loaded for UID: ${uid}`, userDocSnap.data());
-                return { uid: userDocSnap.id, ...userDocSnap.data() };
+                const data = userDocSnap.data();
+                // Pastikan username dan role selalu string, dengan fallback jika kosong
+                const username = data.username || `user_${uid.substring(0, 8)}`;
+                const role = data.role || 'cashier'; // Default ke 'cashier' jika role kosong
+                return { uid: userDocSnap.id, username: username, role: role };
             }
             console.log(`[Firestore Load] No user profile found for UID: ${uid}`);
             return null;
-        } catch (e) {
-            console.error("Error memuat data pengguna dari Firestore:", e);
+        } catch (error) {
+            console.error("Error memuat data pengguna dari Firestore:", error);
             return null;
         }
     }
@@ -755,7 +761,9 @@
                 const product = products.find(p => p.id === item.productId);
                 if (product && product.stock !== undefined) {
                     // Check stock again before proceeding
-                    if (product.stock < item.qty) {
+                    const currentQtyInCart = currentTransactionItems.filter(i => i.productId === item.productId).reduce((sum, i) => sum + i.qty, 0); // Total qty for this product in current cart
+                    // This check is already done in addProductToTransaction, but a final check here is good
+                    if (product.stock < item.qty) { // This check should be based on `item.qty` against `product.stock`
                         displayStatus(`Error: Stok ${product.name} tidak cukup. Stok tersedia: ${product.stock}`, "error");
                         return null; // Return null to indicate failure
                     }
@@ -790,7 +798,7 @@
             totalAmount: total,
             paymentAmount: payment,
             changeAmount: payment - total,
-            cashier: loggedInUser ? loggedInUser.username : 'Unknown',
+            cashier: loggedInUser ? loggedInUser.username : 'Unknown', // Pastikan loggedInUser punya nilai (username tidak undefined)
             transactionNetProfit: transactionNetProfit,
             paymentMethod: paymentMethod
         };
@@ -801,8 +809,8 @@
                 const productDocRef = firebaseFunctions.doc(db, `artifacts/${appId}/products`, item.id);
                 await firebaseFunctions.updateDoc(productDocRef, { stock: item.newStock });
                 console.log(`[Firestore Update] Stock for product ${item.id} decremented to ${item.newStock}`);
-            } catch (e) {
-                console.error(`Error memperbarui stok produk ${item.id} di Firestore:`, e);
+            } catch (error) {
+                console.error(`Error memperbarui stok produk ${item.id} di Firestore:`, error);
                 displayStatus(`Error: Gagal memperbarui stok ${item.id}.`, "error");
                 // If stock update fails, revert previous stock changes (if any) and abort transaction
                 revertStockDecrement(currentTransactionItems); // Revert all items in current transaction
@@ -823,10 +831,9 @@
                     if (productDocSnap.exists()) {
                         const currentStock = productDocSnap.data().stock || 0;
                         await firebaseFunctions.updateDoc(productDocRef, { stock: currentStock + item.qty });
-                        console.log(`[Firestore Revert] Stock for product ${item.productId} reverted to ${currentStock + item.qty}`);
                     }
-                } catch (e) {
-                    console.error(`Error mengembalikan stok produk ${item.productId} di Firestore:`, e);
+                } catch (error) {
+                    console.error(`Error mengembalikan stok produk ${item.productId} di Firestore:`, error);
                 }
             }
         }
@@ -965,7 +972,7 @@
         }
         const transactionDocRef = firebaseFunctions.doc(db, `artifacts/${appId}/transactions`, transactionId);
         try {
-            const docSnap = await firebaseFunctions.getDoc(transactionDocRef); // Changed docRef to transactionDocRef
+            const docSnap = await firebaseFunctions.getDoc(transactionDocRef);
             if (docSnap.exists() && docSnap.data().userId === userId) { // Pastikan user yang login punya hak akses ke transaksi ini
                 const transactionToReprint = { id: docSnap.id, ...docSnap.data() };
                 displayStatus("Mencetak ulang struk...", "info");
@@ -973,8 +980,8 @@
             } else {
                 displayStatus("Error: Transaksi tidak ditemukan atau Anda tidak memiliki akses.", "error");
             }
-        } catch (e) {
-            console.error("Error mencetak ulang transaksi dari Firestore:", e);
+        } catch (error) {
+            console.error("Error mencetak ulang transaksi dari Firestore:", error);
             displayStatus("Error: Gagal mencetak ulang transaksi dari server.", "error");
         }
     }
@@ -1092,9 +1099,9 @@
             storeProductsTableContainer.classList.remove('hidden');
             searchStoreProductsInput.classList.remove('hidden');
             // renderStoreProducts() akan otomatis dipanggil karena onSnapshot
-        } catch (e) {
-            console.error("Error memperbarui produk di Firestore:", e);
-            displayStatus("Error: Gagal memperbarui produk. " + e.message, "error");
+        } catch (error) {
+            console.error("Error memperbarui produk di Firestore:", error);
+            displayStatus("Error: Gagal memperbarui produk. " + error.message, "error");
         }
     }
 
@@ -1110,9 +1117,9 @@
                 await firebaseFunctions.deleteDoc(firebaseFunctions.doc(db, `artifacts/${appId}/products`, productId));
                 displayStatus("Produk berhasil dihapus!", "success");
                 // renderStoreProducts() akan otomatis dipanggil karena onSnapshot
-            } catch (e) {
-                console.error("Error menghapus produk dari Firestore:", e);
-                displayStatus("Error: Gagal menghapus produk. " + e.message, "error");
+            } catch (error) {
+                console.error("Error menghapus produk dari Firestore:", error);
+                displayStatus("Error: Gagal menghapus produk. " + error.message, "error");
             }
         }
     }
@@ -1181,9 +1188,9 @@
             calculateProfit();
             closeAddProductModal();
             // renderStoreProducts() akan otomatis dipanggil karena onSnapshot
-        } catch (e) {
-            console.error("Error menambah produk ke Firestore:", e);
-            displayStatus("Error: Gagal menambah produk baru. " + e.message, "error");
+        } catch (error) {
+            console.error("Error menambah produk ke Firestore:", error);
+            displayStatus("Error: Gagal menambah produk baru. " + error.message, "error");
         }
     }
 
@@ -1229,9 +1236,9 @@
             expenseDescriptionInput.value = '';
             expenseAmountInput.value = '0';
             // renderExpenses() akan otomatis dipanggil karena onSnapshot
-        } catch (e) {
-            console.error("Error menambah pengeluaran ke Firestore:", e);
-            displayStatus("Error: Gagal menambah pengeluaran. " + e.message, "error", expenseStatusMessage);
+        } catch (error) {
+            console.error("Error menambah pengeluaran ke Firestore:", error);
+            displayStatus("Error: Gagal menambah pengeluaran. " + error.message, "error", expenseStatusMessage);
         }
     }
 
@@ -1339,9 +1346,9 @@
                 }
                 displayStatus("Pengeluaran berhasil dihapus!", "success", expenseStatusMessage);
                 // renderExpenses() akan otomatis dipanggil karena onSnapshot
-            } catch (e) {
-                console.error("Error menghapus pengeluaran dari Firestore:", e);
-                displayStatus("Error: Gagal menghapus pengeluaran. " + e.message, "error", expenseStatusMessage);
+            } catch (error) {
+                console.error("Error menghapus pengeluaran dari Firestore:", error);
+                displayStatus("Error: Gagal menghapus pengeluaran. " + error.message, "error", expenseStatusMessage);
             }
         } else {
             displayStatus("Penghapusan pengeluaran dibatalkan.", "info", expenseStatusMessage);
@@ -1750,9 +1757,9 @@
 
             console.log("Semua data aplikasi di Firestore berhasil direset.");
             return true;
-        } catch (e) {
-            console.error("Error mereset data Firestore:", e);
-            displayStatus("Error: Gagal mereset data di server. " + e.message, "error");
+        } catch (error) {
+            console.error("Error mereset data Firestore:", error);
+            displayStatus("Error: Gagal mereset data di server. " + error.message, "error");
             return false;
         }
     }
@@ -2007,9 +2014,9 @@
 
             displayStatus("Transaksi berhasil dihapus dan stok dikembalikan!", "success");
             // renderTransactionHistory() akan otomatis dipanggil karena onSnapshot
-        } catch (e) {
-            console.error("Error menghapus transaksi dari Firestore:", e);
-            displayStatus("Error: Gagal menghapus transaksi. " + e.message, "error");
+        } catch (error) {
+            console.error("Error menghapus transaksi dari Firestore:", error);
+            displayStatus("Error: Gagal menghapus transaksi. " + error.message, "error");
         }
     }
 
@@ -2036,61 +2043,49 @@
 
             // Ambil data profil user dari Firestore
             loggedInUser = await loadUserDataFromFirestore(user.uid);
-            if (loggedInUser) {
-                displayStatus(`Selamat datang, ${loggedInUser.username}! Anda login sebagai ${loggedInUser.role}.`, "success", loginScreenMessage);
-                updateCashierDisplay(); // Ini akan mengatur visibilitas menu admin
-                loginScreen.classList.add('hidden');
-                mainAppContainer.classList.remove('hidden');
-                startNewTransaction();
 
-                // Load data spesifik user setelah login
-                await loadDailyRevenueFromFirestore();
-                await loadMonthlyFinancialDataFromFirestore();
-                await checkAndResetDailyRevenue(); // Periksa dan reset pendapatan harian/bulanan
-                await loadProductsFromFirestore(); // Muat produk
-                await loadTransactionHistoryFromFirestore(); // Muat riwayat transaksi
-                await loadExpensesFromFirestore(); // Muat pengeluaran
-
-            } else {
-                // User is authenticated but no profile in Firestore
-                console.error("[Auth State] Non-anonymous user logged in, but Firestore profile is missing. Attempting to create default profile.");
-
-                // Check if any admin user exists in the 'users' collection
+            // Jika user belum punya profil di Firestore (misal user baru yang register atau user yang profilnya terhapus)
+            if (!loggedInUser) {
+                console.warn("[Auth State] User logged in but Firestore profile is missing. Attempting to create one.");
+                // Cek apakah ada admin yang sudah ada di koleksi 'users'
                 const usersCollectionRef = firebaseFunctions.collection(db, `users`);
-                const existingUsersSnapshot = await firebaseFunctions.getDocs(usersCollectionRef); // Fetch users once
+                const existingUsersSnapshot = await firebaseFunctions.getDocs(usersCollectionRef);
                 const adminExists = existingUsersSnapshot.docs.some(doc => doc.data().role === 'admin');
 
                 let roleToAssign = 'cashier'; // Default role
-                if (!adminExists && !user.isAnonymous) { // If no admin exists and it's a real user (not anonymous)
-                    roleToAssign = 'admin'; // Make this first real user an admin
-                    console.log("[Setup] First real user, no existing admin. Assigning 'admin' role.");
+                // Jika belum ada admin dan ini bukan user anonim (berarti user register dengan email/password)
+                if (!adminExists && !user.isAnonymous) {
+                    roleToAssign = 'admin';
+                    console.log("[Setup] First non-anonymous user, no existing admin. Assigning 'admin' role.");
                 } else if (user.isAnonymous) {
-                     // Anonymous users should always be 'cashier' or a restricted role
-                     roleToAssign = 'cashier';
+                    // User anonim selalu 'cashier' atau role terbatas
+                    roleToAssign = 'cashier';
+                    console.log("[Setup] Anonymous user. Assigning 'cashier' role.");
                 }
 
                 const usernameForProfile = user.email || `user_${user.uid.substring(0, 8)}`;
                 await createUserProfileInFirestore(user.uid, usernameForProfile, roleToAssign);
+                // Setelah membuat profil, set loggedInUser dari data yang baru dibuat
                 loggedInUser = { uid: user.uid, username: usernameForProfile, role: roleToAssign };
-                displayStatus(`Login berhasil, profil default '${usernameForProfile}' dibuat dengan peran ${roleToAssign}.`, "info", loginScreenMessage);
-                updateCashierDisplay();
-                mainAppContainer.classList.remove('hidden');
-                loginScreen.classList.add('hidden');
-
-                // Reload semua data setelah profil dibuat
-                await loadDailyRevenueFromFirestore();
-                await loadMonthlyFinancialDataFromFirestore();
-                await checkAndResetDailyRevenue();
-                await loadProductsFromFirestore();
-                await loadTransactionHistoryFromFirestore();
-                await loadExpensesFromFirestore();
             }
-            // Load user list in settings only after main app setup, as it might depend on loggedInUser.role
-            await loadUsersFromFirestore(); // This loads all users, but might be too late for the above logic if users was empty
+
+            // Setelah loggedInUser PASTI terisi (baik baru dibuat atau dimuat dari Firestore)
+            mainAppContainer.classList.remove('hidden');
+            loginScreen.classList.add('hidden');
+            updateCashierDisplay(); // Update display, termasuk visibilitas menu admin
+            await loadDailyRevenueFromFirestore();
+            await loadMonthlyFinancialDataFromFirestore();
+            await checkAndResetDailyRevenue(); // Periksa dan reset pendapatan harian/bulanan
+            await loadProductsFromFirestore(); // Muat produk dari Firestore
+            await loadTransactionHistoryFromFirestore(); // Muat riwayat transaksi dari Firestore
+            await loadExpensesFromFirestore(); // Muat pengeluaran dari Firestore
+            await loadUsersFromFirestore(); // Muat daftar pengguna dari Firestore
             applyDarkMode(); // Apply dark mode state
+            startNewTransaction(); // Start fresh transaction after all data loaded
             loginScreenUsernameInput.value = '';
             loginScreenPasswordInput.value = '';
             displayStatus("", "", loginScreenMessage);
+
         } catch (error) {
             let errorMessage = "Terjadi kesalahan saat login.";
             if (error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password' || error.code === 'auth/invalid-credential') {
@@ -2142,7 +2137,7 @@
         try {
             await firebaseFunctions.signOut(auth);
             displayStatus("Anda telah logout.", "info");
-            // onAuthStateChanged listener akan menangani perubahan UI
+            // onAuthStateChanged listener akan menangani perubahan UI dan reset data lokal
         } catch (error) {
             console.error("Error logout:", error);
             displayStatus("Error: Gagal logout. " + error.message, "error");
@@ -2204,10 +2199,6 @@
             users = snapshot.docs.map(doc => ({ uid: doc.id, ...doc.data() }));
             console.log("[Firestore Load] Pengguna dimuat dari Firestore:", users);
             renderUserList();
-            // Setelah user dimuat, jika ini adalah run pertama dan tidak ada admin, buat admin default
-            // Ini perlu dipanggil setelah users array terisi.
-            // Hati-hati dengan infinite loop jika ini dipanggil di tempat yang salah.
-            // Kita pindahkan logika ini ke onAuthStateChanged.
         }, (error) => {
             console.error("Error memuat pengguna dari Firestore:", error);
             displayStatus("Error: Gagal memuat daftar pengguna.", "error", addUserStatusMessage);
@@ -2240,7 +2231,7 @@
                                 <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                             </svg>
                         </button>
-                    ` : '<span class="text-gray-500">Admin Default</span>'}
+                    ` : '<span class="text-gray-500">Admin Utama</span>'}
                     `}
                 </td>
             `;
@@ -2279,9 +2270,9 @@
                 console.log(`[Firestore] User profile deleted for UID: ${userUid}`);
                 displayStatus("Profil pengguna berhasil dihapus (User Auth mungkin masih ada).", "success", addUserStatusMessage);
                 // renderUserList() akan otomatis dipanggil
-            } catch (e) {
-                console.error("Error menghapus pengguna dari Firestore:", e);
-                displayStatus("Error: Gagal menghapus pengguna. " + e.message, "error", addUserStatusMessage);
+            } catch (error) {
+                console.error("Error menghapus pengguna dari Firestore:", error);
+                displayStatus("Error: Gagal menghapus pengguna. " + error.message, "error", addUserStatusMessage);
             }
         } else {
             displayStatus("Penghapusan pengguna dibatalkan.", "info", addUserStatusMessage);
@@ -2382,9 +2373,9 @@
                  // If current loggedInUser profile was deleted, force a full logout to return to login screen
                  firebaseFunctions.signOut(auth);
             }
-        } catch (e) {
-            console.error("Error saat cleanup user:", e);
-            displayStatus("Error: Gagal melakukan cleanup user. " + e.message, "error", addUserStatusMessage);
+        } catch (error) {
+            console.error("Error saat cleanup user:", error);
+            displayStatus("Error: Gagal melakukan cleanup user. " + error.message, "error", addUserStatusMessage);
         }
     }
 
@@ -2428,8 +2419,8 @@
         try {
             localStorage.setItem(LOCAL_STORAGE_PRINTER_ID_KEY, deviceId);
             console.log("Printer ID saved:", deviceId);
-        } catch (e) {
-            console.error("Gagal menyimpan ID printer ke localStorage:", e);
+        } catch (error) {
+            console.error("Gagal menyimpan ID printer ke localStorage:", error);
         }
     }
 
@@ -2437,8 +2428,8 @@
         try {
             localStorage.removeItem(LOCAL_STORAGE_PRINTER_ID_KEY);
             console.log("Printer ID dihapus dari localStorage.");
-        } catch (e) {
-            console.error("Gagal menghapus ID printer dari localStorage:", e);
+        } catch (error) {
+            console.error("Gagal menghapus ID printer dari localStorage:", error);
         }
     }
 
@@ -2547,8 +2538,8 @@
                     clearSavedPrinter();
                 }
             } catch (error) {
-                console.error("Gagal menghubungkan kembali ke printer tersimpan:", e); // Changed error to e
-                updatePrinterConnectionStatus(`Gagal menghubungkan kembali: ${e.message}`); // Changed error to e
+                console.error("Gagal menghubungkan kembali ke printer tersimpan:", error);
+                updatePrinterConnectionStatus(`Gagal menghubungkan kembali: ${error.message}`);
                 bluetoothPrinterDevice = null;
                 printerCharacteristic = null;
                 clearSavedPrinter();
@@ -2819,78 +2810,52 @@
             if (user) {
                 // User is signed in.
                 console.log("[Auth State] Firebase user logged in:", user.uid);
+
                 // Muat data profil user dari Firestore
                 loggedInUser = await loadUserDataFromFirestore(user.uid);
-                if (loggedInUser) {
-                    // If the user's profile is found, proceed to load app data
-                    mainAppContainer.classList.remove('hidden');
-                    loginScreen.classList.add('hidden');
-                    updateCashierDisplay(); // Update display immediately, termasuk visibilitas menu admin
-                    await loadDailyRevenueFromFirestore();
-                    await loadMonthlyFinancialDataFromFirestore();
-                    await checkAndResetDailyRevenue(); // Periksa dan reset pendapatan harian/bulanan
-                    await loadProductsFromFirestore(); // Muat produk dari Firestore
-                    await loadTransactionHistoryFromFirestore(); // Muat riwayat transaksi dari Firestore
-                    await loadExpensesFromFirestore(); // Muat pengeluaran dari Firestore
-                    await loadUsersFromFirestore(); // Muat daftar pengguna dari Firestore
-                    applyDarkMode(); // Apply dark mode state
 
-                    // First time setup: If no users exist and current user is NOT anonymous (or if you want to explicitly create one), create default admin user
-                    // Logika ini diubah: HANYA membuat admin default jika TIDAK ADA user TERDAFTAR SAMA SEKALI
-                    // dan ini bukan skenario login anonim otomatis dari Canvas.
-                    // Jika user datang dengan initialAuthToken, itu berarti dia sudah terautentikasi (bisa anonim atau tidak).
-                    // Kalo user.isAnonymous itu true dan users.length === 0, berarti ini user anonim pertama.
-                    if (users.length === 0 && !loggedInUser) { // Jika belum ada user di Firestore dan user yang login saat ini belum punya profil
-                        console.log("[Setup] No users found in Firestore. Creating default admin user profile.");
-                        // Gunakan email default atau UID sebagai username jika tidak ada email yang terdaftar
-                        const defaultUsername = user.email || 'admin@unixfashion.com'; // Menggunakan email jika tersedia, atau email default
-                        await createUserProfileInFirestore(user.uid, defaultUsername, 'admin'); // Buat profil admin default
-                        loggedInUser = await loadUserDataFromFirestore(user.uid); // Reload loggedInUser untuk mendapatkan role baru
-                        updateCashierDisplay(); // Re-update display to reflect admin role
-                    }
-
-
-                    startNewTransaction(); // Start fresh transaction after all data loaded
-                } else {
-                    // User is authenticated but no profile in Firestore (e.g., first login, or import deleted profile)
-                    console.error("[Auth State] Non-anonymous user logged in, but Firestore profile is missing. Attempting to create default profile.");
-
-                    // Check if any admin user exists in the 'users' collection
+                // Jika user belum punya profil di Firestore (misal user baru yang register atau user yang profilnya terhapus)
+                if (!loggedInUser) {
+                    console.warn("[Auth State] User logged in but Firestore profile is missing. Attempting to create one.");
+                    // Cek apakah ada admin yang sudah ada di koleksi 'users'
                     const usersCollectionRef = firebaseFunctions.collection(db, `users`);
-                    const existingUsersSnapshot = await firebaseFunctions.getDocs(usersCollectionRef); // Fetch users once
+                    const existingUsersSnapshot = await firebaseFunctions.getDocs(usersCollectionRef);
                     const adminExists = existingUsersSnapshot.docs.some(doc => doc.data().role === 'admin');
 
                     let roleToAssign = 'cashier'; // Default role
-                    if (!adminExists && !user.isAnonymous) { // If no admin exists and it's a real user (not anonymous)
-                        roleToAssign = 'admin'; // Make this first real user an admin
-                        console.log("[Setup] First real user, no existing admin. Assigning 'admin' role.");
+                    // Jika belum ada admin dan ini bukan user anonim (berarti user register dengan email/password)
+                    if (!adminExists && !user.isAnonymous) {
+                        roleToAssign = 'admin';
+                        console.log("[Setup] First non-anonymous user, no existing admin. Assigning 'admin' role.");
                     } else if (user.isAnonymous) {
-                         // Anonymous users should always be 'cashier' or a restricted role
-                         roleToAssign = 'cashier';
+                        // User anonim selalu 'cashier' atau role terbatas
+                        roleToAssign = 'cashier';
+                        console.log("[Setup] Anonymous user. Assigning 'cashier' role.");
                     }
 
                     const usernameForProfile = user.email || `user_${user.uid.substring(0, 8)}`;
                     await createUserProfileInFirestore(user.uid, usernameForProfile, roleToAssign);
+                    // Setelah membuat profil, set loggedInUser dari data yang baru dibuat
                     loggedInUser = { uid: user.uid, username: usernameForProfile, role: roleToAssign };
-                    displayStatus(`Login berhasil, profil default '${usernameForProfile}' dibuat dengan peran ${roleToAssign}.`, "info", loginScreenMessage);
-                    updateCashierDisplay();
-                    mainAppContainer.classList.remove('hidden');
-                    loginScreen.classList.add('hidden');
-
-                    // Reload semua data setelah profil dibuat
-                    await loadDailyRevenueFromFirestore();
-                    await loadMonthlyFinancialDataFromFirestore();
-                    await checkAndResetDailyRevenue();
-                    await loadProductsFromFirestore();
-                    await loadTransactionHistoryFromFirestore();
-                    await loadExpensesFromFirestore();
                 }
-            // Load user list in settings only after main app setup, as it might depend on loggedInUser.role
-            await loadUsersFromFirestore(); // This loads all users, but might be too late for the above logic if users was empty
-            applyDarkMode(); // Apply dark mode state
-            loginScreenUsernameInput.value = '';
-            loginScreenPasswordInput.value = '';
-            displayStatus("", "", loginScreenMessage);
+
+                // Setelah loggedInUser PASTI terisi (baik baru dibuat atau dimuat dari Firestore)
+                mainAppContainer.classList.remove('hidden');
+                loginScreen.classList.add('hidden');
+                updateCashierDisplay(); // Update display, termasuk visibilitas menu admin
+                await loadDailyRevenueFromFirestore();
+                await loadMonthlyFinancialDataFromFirestore();
+                await checkAndResetDailyRevenue(); // Periksa dan reset pendapatan harian/bulanan
+                await loadProductsFromFirestore(); // Muat produk dari Firestore
+                await loadTransactionHistoryFromFirestore(); // Muat riwayat transaksi dari Firestore
+                await loadExpensesFromFirestore(); // Muat pengeluaran dari Firestore
+                await loadUsersFromFirestore(); // Muat daftar pengguna dari Firestore
+                applyDarkMode(); // Apply dark mode state
+                startNewTransaction(); // Start fresh transaction after all data loaded
+                loginScreenUsernameInput.value = '';
+                loginScreenPasswordInput.value = '';
+                displayStatus("", "", loginScreenMessage);
+
             } else {
                 // User is signed out.
                 console.log("[Auth State] Firebase user signed out.");
@@ -2898,10 +2863,12 @@
                 loginScreen.classList.remove('hidden');
                 mainAppContainer.classList.add('hidden');
                 updateCashierDisplay(); // Update cashier display to "Tidak Login"
-                products = []; // Clear local data on logout
+                // Clear all local data upon logout
+                products = [];
+                currentTransactionItems = [];
                 transactionHistory = [];
                 expenses = [];
-                users = []; // Clear user list (except what's needed for login screen)
+                users = [];
                 dailyRevenue = 0;
                 monthlyNetProfit = 0;
                 monthlyExpenses = 0;
