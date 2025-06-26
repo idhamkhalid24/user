@@ -10,6 +10,69 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     <!-- Custom styles -->
     <link rel="stylesheet" href="style.css">
+    
+    <!-- Firebase SDK (Ditambahkan untuk koneksi ke Firebase) -->
+    <!-- Firestore dan Auth akan kita gunakan -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        // Tambahkan signInAnonymously di sini
+        import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, onAuthStateChanged, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, getDoc, setDoc, updateDoc, deleteDoc, collection, query, onSnapshot, addDoc, where, getDocs, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // Konfigurasi Firebase lo (sama seperti yang lo kasih)
+        const firebaseConfig = {
+            apiKey: "AIzaSyC4AiZLA9uuX1Kcm_NBBOPUKnKg4QOG70E",
+            authDomain: "azykasir.firebaseapp.com",
+            projectId: "azykasir",
+            storageBucket: "azykasir.firebasestorage.app",
+            messagingSenderId: "123823209792",
+            appId: "1:123823209792:web:3f0bcc9f77ff4c346e8ea5",
+            measurementId: "G-T0PB6Q3YZ8"
+        };
+
+        // Inisialisasi Firebase App
+        const app = initializeApp(firebaseConfig);
+        // Dapatkan instance Auth dan Firestore
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+
+        // VARIABEL GLOBAL PENTING UNTUK DIGUNAKAN DI `script.js`
+        // Ini memastikan `script.js` bisa mengakses `auth` dan `db`
+        window.firebaseAuth = auth;
+        window.firebaseDb = db;
+        
+        // __app_id, __firebase_config, __initial_auth_token
+        // Variabel yang disediakan lingkungan Canvas, pastikan untuk menggunakannya
+        // Ini akan di-handle di script.js
+        window.appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id'; // Pastikan `__app_id` tersedia
+        window.firebaseAppConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : firebaseConfig; // Gunakan config yang disediakan Canvas jika ada
+        window.initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null; // Token autentikasi awal
+
+        // Ekspor fungsi-fungsi Firebase yang akan digunakan di script.js
+        // Ini memastikan `script.js` dapat mengakses fungsi-fungsi Firebase secara langsung
+        window.firebase = {
+            initializeApp,
+            getAuth,
+            signInWithEmailAndPassword,
+            createUserWithEmailAndPassword,
+            signOut,
+            onAuthStateChanged,
+            signInAnonymously, // <--- INI YANG DITAMBAHKAN
+            getFirestore,
+            doc,
+            getDoc,
+            setDoc,
+            updateDoc,
+            deleteDoc,
+            collection,
+            query,
+            onSnapshot,
+            addDoc,
+            where,
+            getDocs,
+            serverTimestamp // <--- Ini juga kalau belum ada, untuk timestamp di Firestore
+        };
+    </script>
 </head>
 <body class="bg-gray-100 flex flex-col min-h-screen">
     <!-- Tombol Mode Terang/Gelap di luar halaman kasir -->
@@ -803,59 +866,6 @@
     </div>
 
 
-    <!-- Firebase SDK (Added here) -->
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, doc, getDoc, setDoc, collection, query, where, addDoc, getDocs, updateDoc, deleteDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
-
-        // Firebase configuration (using provided config)
-        const firebaseConfig = {
-            apiKey: "AIzaSyAMuA4AuvENmKA2JkgRIs8cxAEWtKzCi3o",
-            authDomain: "kaisrku-f7ef0.firebaseapp.com",
-            projectId: "kaisrku-f7ef0",
-            storageBucket: "kaisrku-f7ef0.firebasestorage.app",
-            messagingSenderId: "59096076242",
-            appId: "1:59096076242:web:74c08315c0f218c2be820b",
-            measurementId: "G-4CGYCFTVHS"
-        };
-
-        // Initialize Firebase
-        const app = initializeApp(firebaseConfig);
-        const db = getFirestore(app);
-        const auth = getAuth(app);
-
-        // Make these available globally for script.js
-        window.db = db;
-        window.auth = auth;
-        window.initializeApp = initializeApp;
-        window.getAuth = getAuth;
-        window.signInAnonymously = signInAnonymously;
-        window.signInWithCustomToken = signInWithCustomToken;
-        window.onAuthStateChanged = onAuthStateChanged;
-        window.getFirestore = getFirestore;
-        window.doc = doc;
-        window.getDoc = getDoc;
-        window.setDoc = setDoc;
-        window.collection = collection;
-        window.query = query;
-        window.where = where;
-        window.addDoc = addDoc;
-        window.getDocs = getDocs;
-        window.updateDoc = updateDoc;
-        window.deleteDoc = deleteDoc;
-        window.onSnapshot = onSnapshot;
-
-        // Global variables for Canvas environment
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-        const firebaseConfigFromCanvas = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : firebaseConfig;
-        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
-        
-        window.appId = appId;
-        window.firebaseConfigFromCanvas = firebaseConfigFromCanvas;
-        window.initialAuthToken = initialAuthToken;
-
-    </script>
     <!-- Bluetooth Print JS Library -->
     <script src="https://cdn.jsdelivr.net/npm/bluetooth-print-js@1.0/index.min.js"></script>
     <script src="script.js"></script>
